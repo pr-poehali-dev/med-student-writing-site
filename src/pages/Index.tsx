@@ -4,12 +4,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 
 const Index = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<string | null>(null);
   const [exerciseProgress, setExerciseProgress] = useState(0);
   const [completedExercises, setCompletedExercises] = useState<number[]>([]);
+  const [currentTestQuestion, setCurrentTestQuestion] = useState(0);
+  const [testAnswers, setTestAnswers] = useState<number[]>([]);
+  const [testScore, setTestScore] = useState<number | null>(null);
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [studentName, setStudentName] = useState('');
+  const [certificateDate] = useState(new Date().toLocaleDateString('ru-RU', { year: 'numeric', month: 'long', day: 'numeric' }));
 
   const materials = [
     {
@@ -70,12 +79,70 @@ const Index = () => {
     }
   ];
 
+  const finalTest = [
+    {
+      question: 'Какие разделы обязательны в структуре научной статьи?',
+      options: ['Введение, Методы, Результаты, Обсуждение', 'Только Введение и Выводы', 'Аннотация и Список литературы', 'Методы и Приложения'],
+      correct: 0
+    },
+    {
+      question: 'В каком стиле цитирования нумеруют ссылки по порядку появления в тексте?',
+      options: ['APA', 'Vancouver', 'Harvard', 'MLA'],
+      correct: 1
+    },
+    {
+      question: 'Как правильно оформить статистические данные в медицинской статье?',
+      options: ['Только текстом', 'С указанием p-значения и доверительных интервалов', 'Без единиц измерения', 'Округлять до целых чисел'],
+      correct: 1
+    },
+    {
+      question: 'Что означает латинский термин "per os"?',
+      options: ['Внутривенно', 'Через рот', 'Подкожно', 'Наружно'],
+      correct: 1
+    },
+    {
+      question: 'В какой раздел статьи помещают интерпретацию полученных результатов?',
+      options: ['Введение', 'Материалы и методы', 'Результаты', 'Обсуждение'],
+      correct: 3
+    }
+  ];
+
   const handleExerciseComplete = (exerciseId: number) => {
     if (!completedExercises.includes(exerciseId)) {
       const newCompleted = [...completedExercises, exerciseId];
       setCompletedExercises(newCompleted);
       setExerciseProgress((newCompleted.length / exercises.length) * 100);
     }
+  };
+
+  const handleTestAnswer = (answerIndex: number) => {
+    const newAnswers = [...testAnswers, answerIndex];
+    setTestAnswers(newAnswers);
+    
+    if (currentTestQuestion < finalTest.length - 1) {
+      setCurrentTestQuestion(currentTestQuestion + 1);
+    } else {
+      const score = newAnswers.reduce((acc, answer, idx) => 
+        answer === finalTest[idx].correct ? acc + 1 : acc, 0
+      );
+      setTestScore(score);
+    }
+  };
+
+  const resetTest = () => {
+    setCurrentTestQuestion(0);
+    setTestAnswers([]);
+    setTestScore(null);
+  };
+
+  const handleGetCertificate = () => {
+    if (studentName.trim()) {
+      setShowCertificate(true);
+    }
+  };
+
+  const downloadCertificate = () => {
+    window.print();
   };
 
   return (
@@ -102,7 +169,7 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="materials" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+          <TabsList className="grid w-full max-w-2xl mx-auto grid-cols-3 mb-8">
             <TabsTrigger value="materials" className="flex items-center gap-2">
               <Icon name="BookOpen" size={18} />
               Материалы
@@ -110,6 +177,10 @@ const Index = () => {
             <TabsTrigger value="exercises" className="flex items-center gap-2">
               <Icon name="PenTool" size={18} />
               Упражнения
+            </TabsTrigger>
+            <TabsTrigger value="test" className="flex items-center gap-2" disabled={completedExercises.length < exercises.length}>
+              <Icon name="Award" size={18} />
+              Тестирование
             </TabsTrigger>
           </TabsList>
 
@@ -225,7 +296,131 @@ const Index = () => {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="test" className="animate-fade-in">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold mb-2">Финальное тестирование</h2>
+              <p className="text-muted-foreground">
+                Пройдите тест и получите сертификат об окончании курса
+              </p>
+            </div>
+
+            {testScore === null ? (
+              <div className="max-w-2xl mx-auto">
+                <Card className="animate-scale-in">
+                  <CardHeader>
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge variant="secondary">Вопрос {currentTestQuestion + 1} из {finalTest.length}</Badge>
+                      <div className="text-sm text-muted-foreground">
+                        <Progress value={(currentTestQuestion / finalTest.length) * 100} className="w-32" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-xl">{finalTest[currentTestQuestion].question}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {finalTest[currentTestQuestion].options.map((option, idx) => (
+                        <Button
+                          key={idx}
+                          variant="outline"
+                          className="w-full justify-start text-left h-auto py-4"
+                          onClick={() => handleTestAnswer(idx)}
+                        >
+                          <span className="mr-3 font-bold">{String.fromCharCode(65 + idx)}.</span>
+                          {option}
+                        </Button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            ) : (
+              <div className="max-w-2xl mx-auto space-y-6">
+                <Card className="animate-scale-in">
+                  <CardContent className="pt-6">
+                    <div className="text-center">
+                      {testScore >= 4 ? (
+                        <>
+                          <Icon name="Award" size={64} className="mx-auto mb-4 text-primary" />
+                          <h3 className="text-2xl font-bold mb-2">Поздравляем!</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Вы успешно прошли тестирование: {testScore} из {finalTest.length} правильных ответов
+                          </p>
+                          <div className="bg-muted p-4 rounded-lg mb-6">
+                            <Label htmlFor="student-name" className="text-left block mb-2">Введите ваше имя для получения сертификата:</Label>
+                            <Input 
+                              id="student-name"
+                              placeholder="Иванов Иван Иванович" 
+                              value={studentName}
+                              onChange={(e) => setStudentName(e.target.value)}
+                              className="mb-3"
+                            />
+                            <Button onClick={handleGetCertificate} disabled={!studentName.trim()} className="w-full">
+                              <Icon name="Award" size={18} className="mr-2" />
+                              Получить сертификат
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <Icon name="XCircle" size={64} className="mx-auto mb-4 text-destructive" />
+                          <h3 className="text-2xl font-bold mb-2">Попробуйте еще раз</h3>
+                          <p className="text-muted-foreground mb-4">
+                            Ваш результат: {testScore} из {finalTest.length}. Для получения сертификата необходимо набрать минимум 4 балла.
+                          </p>
+                        </>
+                      )}
+                      <Button variant="outline" onClick={resetTest} className="mt-4">
+                        <Icon name="RotateCcw" size={18} className="mr-2" />
+                        Пройти тест заново
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
         </Tabs>
+
+        <Dialog open={showCertificate} onOpenChange={setShowCertificate}>
+          <DialogContent className="max-w-3xl print:border-0">
+            <DialogHeader>
+              <DialogTitle>Сертификат об окончании курса</DialogTitle>
+              <DialogDescription>Сохраните или распечатайте ваш сертификат</DialogDescription>
+            </DialogHeader>
+            <div className="border-4 border-primary p-8 bg-gradient-to-br from-background to-muted rounded-lg print:border-8" id="certificate">
+              <div className="text-center space-y-4">
+                <Icon name="Award" size={80} className="mx-auto text-primary" />
+                <h2 className="text-3xl font-bold">СЕРТИФИКАТ</h2>
+                <p className="text-lg">об успешном окончании курса</p>
+                <div className="my-8">
+                  <h3 className="text-4xl font-bold text-primary mb-4">{studentName}</h3>
+                  <p className="text-lg text-muted-foreground">
+                    успешно прошёл(а) образовательную программу
+                  </p>
+                  <h4 className="text-2xl font-bold mt-4">«Научное письмо в медицине»</h4>
+                </div>
+                <div className="flex justify-center items-center gap-8 text-sm text-muted-foreground pt-8 border-t">
+                  <div>
+                    <p>Результат: <strong>{testScore}/{finalTest.length}</strong></p>
+                  </div>
+                  <div>
+                    <p>Дата: <strong>{certificateDate}</strong></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 print:hidden">
+              <Button onClick={downloadCertificate} className="flex-1">
+                <Icon name="Download" size={18} className="mr-2" />
+                Скачать сертификат
+              </Button>
+              <Button variant="outline" onClick={() => setShowCertificate(false)}>
+                Закрыть
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </main>
 
       <footer className="border-t mt-16 bg-card">
